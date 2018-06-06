@@ -52,6 +52,102 @@ module Origami
             Signature.verify(subfilter.to_s, data, signature, store, flags)
         end
 
+        def prepare_signature(
+                 method: Signature::PKCS7_DETACHED,
+                 annotation: nil,
+                 issuer: nil,
+                 location: nil,
+                 contact: nil,
+                 reason: nil,
+                 content_size: 4096)
+
+            unless annotation.nil? or annotation.is_a?(Annotation::Widget::Signature)
+                raise TypeError, "Expected a Annotation::Widget::Signature object."
+            end
+
+            digsig = Signature::DigitalSignature.new.set_indirect(true)
+
+            if annotation.nil?
+                annotation = Annotation::Widget::Signature.new
+                annotation.Rect = Rectangle[:llx => 0.0, :lly => 0.0, :urx => 0.0, :ury => 0.0]
+            end
+
+            annotation.V = digsig
+            add_fields(annotation)
+            self.Catalog.AcroForm.SigFlags =
+                InteractiveForm::SigFlags::SIGNATURES_EXIST | InteractiveForm::SigFlags::APPEND_ONLY
+
+            digsig.Type = :Sig
+            digsig.Contents = HexaString.new("\x00" * Signature::required_size(method, certificate, key, ca))
+            digsig.Filter = :"Adobe.PPKLite"
+            digsig.SubFilter = Name.new(method)
+            digsig.ByteRange = [0, 0, 0, 0]
+            digsig.Name = issuer
+
+            digsig.Location = HexaString.new(location) if location
+            digsig.ContactInfo = HexaString.new(contact) if contact
+            digsig.Reason = HexaString.new(reason) if reason
+
+            # PKCS1 signatures require a Cert entry.
+            if method == Signature::PKCS1_RSA_SHA1
+                digsig.Cert =
+                    if ca.empty?
+                        HexaString.new(certificate.to_der)
+                    else
+                        [ HexaString.new(certificate.to_der) ] + ca.map{ |crt| HexaString.new(crt.to_der) }
+                    end
+            end
+
+            #
+            #  Flattening the PDF to get file view.
+            #
+            compile
+
+            #
+            # Creating an empty Xref table to compute signature byte range.
+            #
+            rebuild_dummy_xrefs
+
+            sig_offset = get_object_offset(digsig.no, digsig.generation) + digsig.signature_offset
+
+            digsig.ByteRange[0] = 0
+            digsig.ByteRange[1] = sig_offset
+            digsig.ByteRange[2] = sig_offset + digsig.Contents.to_s.bytesize
+
+            until digsig.ByteRange[3] == filesize - digsig.ByteRange[2]
+                digsig.ByteRange[3] = filesize - digsig.ByteRange[2]
+            end
+
+            # From that point on, the file size remains constant
+
+            #
+            # Correct Xrefs variations caused by ByteRange modifications.
+            #
+            rebuild_xrefs
+
+            file_data = output()
+            signable_data = file_data[digsig.ByteRange[0],digsig.ByteRange[1]] +
+                file_data[digsig.ByteRange[2],digsig.ByteRange[3]]
+
+            return signable_data
+        end
+
+        #
+        # Insert a der encoded PKCS7 signature
+        #
+        def insert_signature(signature)
+            begin
+                digsig = self.signature
+            rescue  SignatureError
+                raise "Document is not prepared for insert sign, call method prepare_for_sign first"
+            end
+
+            digsig.Contents[0, signature.size] = signature
+
+            self.freeze
+        end
+
+
         #
         # Sign the document with the given key and x509 certificate.
         # _certificate_:: The X509 certificate containing the public key.
