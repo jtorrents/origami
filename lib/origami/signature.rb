@@ -78,7 +78,7 @@ module Origami
                 InteractiveForm::SigFlags::SIGNATURES_EXIST | InteractiveForm::SigFlags::APPEND_ONLY
 
             digsig.Type = :Sig
-            digsig.Contents = HexaString.new("\x00" * Signature::required_size(method, certificate, key, ca))
+            digsig.Contents = HexaString.new("\x00" * content_size)
             digsig.Filter = :"Adobe.PPKLite"
             digsig.SubFilter = Name.new(method)
             digsig.ByteRange = [0, 0, 0, 0]
@@ -87,16 +87,6 @@ module Origami
             digsig.Location = HexaString.new(location) if location
             digsig.ContactInfo = HexaString.new(contact) if contact
             digsig.Reason = HexaString.new(reason) if reason
-
-            # PKCS1 signatures require a Cert entry.
-            if method == Signature::PKCS1_RSA_SHA1
-                digsig.Cert =
-                    if ca.empty?
-                        HexaString.new(certificate.to_der)
-                    else
-                        [ HexaString.new(certificate.to_der) ] + ca.map{ |crt| HexaString.new(crt.to_der) }
-                    end
-            end
 
             #
             #  Flattening the PDF to get file view.
