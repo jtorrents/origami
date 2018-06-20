@@ -132,7 +132,7 @@ module Origami
                 raise "Document is not prepared for insert sign, call method prepare_for_sign first"
             end
 
-            digsig.Contents[0, signature.size] = signature
+            digsig.Contents[0, signature.to_s.bytesize] = signature
 
             self.freeze
         end
