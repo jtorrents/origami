@@ -87,10 +87,10 @@ module Origami
         #
         def create_metadata(info = {})
             skeleton = <<-XMP
-            <?packet begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>
+            <?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>
               <x:xmpmeta xmlns:x="adobe:ns:meta/">
                 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-                  <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">
+                  <rdf:Description rdf:about="" xmlns:pdfx="http://ns.adobe.com/pdfx/1.3/">
                   </rdf:Description>
                 </rdf:RDF>
               </x:xmpmeta>
@@ -108,7 +108,7 @@ module Origami
             desc = doc.elements['*/*/rdf:Description']
 
             info.each do |name, value|
-                elt = REXML::Element.new "pdf:#{name}"
+                elt = REXML::Element.new "pdfx:#{name}"
                 elt.text = value
 
                 desc.elements << elt
@@ -119,7 +119,7 @@ module Origami
             if self.Catalog.Metadata.is_a?(Stream)
                 self.Catalog.Metadata.data = xml
             else
-               self.Catalog.Metadata = Stream.new(xml)
+               self.Catalog.Metadata = MetadataStream.new(xml)
             end
 
             self.Catalog.Metadata
