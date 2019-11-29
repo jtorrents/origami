@@ -98,7 +98,7 @@ module Origami
             XMP
 
             xml =
-                if self.Catalog.Metadata.is_a?(Stream)
+                if self.Catalog.Metadata.is_a?(MetadataStream)
                     self.Catalog.Metadata.data
                 else
                     skeleton
@@ -116,7 +116,7 @@ module Origami
 
             xml = ""; doc.write(xml, 4)
 
-            if self.Catalog.Metadata.is_a?(Stream)
+            if self.Catalog.Metadata.is_a?(MetadataStream)
                 self.Catalog.Metadata.data = xml
             else
                self.Catalog.Metadata = MetadataStream.new(xml)
